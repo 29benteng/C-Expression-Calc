@@ -115,7 +115,7 @@ int Get_Double_Right(char *string, int len, int local) //获取二元运算符�
         int tmp = 1;
         for (int i = local + 2; i < len; ++i)
         {
-            printf("%c", string[i]);
+            // printf("%c", string[i]);
             switch (string[i])
             {
             case '(':
@@ -146,8 +146,7 @@ int Get_Double_Right(char *string, int len, int local) //获取二元运算符�
 
 op *analyze(char *string, int len)
 {
-    int tmp_circle = 0, tmp_square = 0;
-    for (int i = 0; i < len; ++i) // +-
+    for (int i = 0, tmp_circle = 0, tmp_square = 0; i < len; ++i) // +-
     {
         switch (string[i])
         {
@@ -193,9 +192,7 @@ op *analyze(char *string, int len)
             break;
         }
     }
-    tmp_circle = 0;
-    tmp_square = 0;
-    for (int i = 0; i < len; ++i) // */
+    for (int i = 0, tmp_circle = 0, tmp_square = 0; i < len; ++i) // */
     {
         switch (string[i])
         {
@@ -225,6 +222,34 @@ op *analyze(char *string, int len)
                     tmp_op->child[1] = analyze(string + i + 1, len - i - 1);
                     return tmp_op;
                 }
+                default:
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    for (int i = 0, tmp_circle = 0, tmp_square = 0; i < len; ++i) // */
+    {
+        switch (string[i])
+        {
+        case '(':
+            tmp_circle++;
+            break;
+        case ')':
+            tmp_circle--;
+            break;
+        case '[':
+            tmp_square++;
+            break;
+        case ']':
+            tmp_square--;
+            break;
+        default:
+            if (!(tmp_circle + tmp_square))
+            {
+                switch (string[i])
+                {
                 case '/': // A-B
                 {
                     op *tmp_op = new_op(string + i, 1);
@@ -305,19 +330,6 @@ op *analyze(char *string, int len)
     return new_op(string, len); //递归底层返回op //>123<
 }
 
-void op_print(op *unit)
-{
-    (unit->data.symple[0] == '@') ? printf("\nop:%p content:%c", unit, unit->data.symple[1]) : printf("\nop:%p content:%f", unit, unit->data.number);
-    if (unit->child[0] != NULL)
-    {
-        op_print(unit->child[0]);
-    }
-    if (unit->child[1] != NULL)
-    {
-        op_print(unit->child[1]);
-    }
-}
-
 // double op_calc(op *unit)
 // {
 //     return unit->get_value(unit);
@@ -336,25 +348,97 @@ void op_clean(op *unit)
     free(unit);
 }
 
-int main()
+void op_print(op *unit)
 {
-    char tmp[] = "(3.14)+((0-1.414)*((1.427)+(0.333)))";
-    // char tmp[] = "(128+9)*9+4";
-    // printf("Format_test:%d", Is_Format(tmp, strlen(tmp)));
-    printf("Single_Left_test:%d", Get_Double_Right(tmp, strlen(tmp), 8));
+    if (unit->data.symple[0] == '@')
+    {
+        Serial.print("op:");
+        Serial.print((int)unit);
+        Serial.print(" content:");
+        Serial.println(unit->data.symple + 1);
+    }
+    else
+    {
+        Serial.print("op:");
+        Serial.print((int)unit);
+        Serial.print(" content:");
+        Serial.println(unit->data.number);
+    }
+    if (unit->child[0] != NULL)
+    {
+        op_print(unit->child[0]);
+    }
+    if (unit->child[1] != NULL)
+    {
+        op_print(unit->child[1]);
+    }
+}
+static size_t __get_free_mem2(size_t start, size_t end)
+{
+    unsigned char *p;
+    while (start < end - 1)
+    {
+        size_t size = (start + end) / 2;
+        if (size == 0)
+            return 0;
+        p = (unsigned char *)malloc(size);
+        if (p != NULL)
+        { // malloc succeeded
+            free(p);
+            start = size;
+        }
+        else
+        { // malloc failed
+            end = size - 1;
+        }
+    }
+    return start;
+}
+void setup()
+{
+    Serial.begin(9600);
+    pinMode(PC13, OUTPUT);
+    digitalWrite(PC13, HIGH);
+}
 
+void loop()
+{
+    delay(1000);
+    Serial.println("\nExpression Input: ");
+    while (!Serial.available())
+    {
+        digitalWrite(PC13, HIGH); // turn the LED on (HIGH is the voltage level)
+        delay(100);               // wait for a second
+        digitalWrite(PC13, LOW);  // turn the LED off by making the voltage LOW
+        delay(200);
+    }
+    char *tmp = (char *)malloc(Serial.available() * sizeof(char));
+    Serial.readBytes(tmp, Serial.available()); //1+5-8*7/9*(88*7-9*8)
+    Serial.print("Received: ");
+    Serial.print(tmp);
+    Serial.print("len:");
+    Serial.println(strlen(tmp));
     op *final = analyze(tmp, strlen(tmp)); //be->ed
     op_print(final);
-    printf("\n\nResult: %f Answer: %f", final->get_value(final), (3.14) + ((0 - 1.414) * ((1.427) + (0.333))));
-    // printf("\nSize of Data: %d", sizeof(Data));
+    Serial.print("\nResult: ");
+    Serial.println(final->get_value(final));
+    //Serial.print(" Answer: ");
+    //Serial.println((3.14) + ((1.414) * ((1.427) + (0.333))));
+    // // Serial.print("\nSize of Data: ");
+    // // Serial.println(sizeof(Data));
     op_clean(final);
-    // for (int i = 0; i < 100; ++i)
+    double tmp_num;
+    // for (int i = 0; i < 5000; ++i)
     // {
-    //     op *final = analyze(tmp, strlen(tmp) - 1); //be->ed
-    //     op_print(final);
-    //     printf("\n\nResult: %f Answer: %f", final->get_value(final), (3.14) + ((1.414) * ((1.427) + (0.333))));
-    //     // printf("\nSize of Data: %d", sizeof(Data));
+    //     op *final = analyze(tmp, strlen(tmp) - 1);
+    //     tmp_num = final->get_value(final);
+    //     // Serial.println("Done!");
+    //     //op_print(final);
     //     op_clean(final);
     // }
-    return 0;
+
+    Serial.println("Done!");
+    Serial.println(__get_free_mem2(0x20000000, 0x20000010));
+    free(tmp);
+    delay(1000);
 }
